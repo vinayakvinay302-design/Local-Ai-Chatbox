@@ -1,0 +1,340 @@
+"""A lightweight, fully offline, rule-based chatbot engine.
+
+No external APIs, no API keys, no internet connection required.
+"""
+
+from .engine import ChatEngine
+
+__all__ = ["ChatEngine"]
+__version__ = "1.0.0"
+{
+  "intents": [
+    {
+      "tag": "greeting",
+      "patterns": ["hi", "hello", "hey", "good morning", "good evening", "what's up", "yo"],
+      "responses": [
+        "Hello! How can I help you today?",
+        "Hey there! What can I do for you?",
+        "Hi! Ask me anything."
+      ]
+    },
+    {
+      "tag": "goodbye",
+      "patterns": ["bye", "goodbye", "see you", "see ya", "talk later", "exit", "quit"],
+      "responses": [
+        "Goodbye! Have a great day.",
+        "See you later!",
+        "Bye! Come back anytime."
+      ]
+    },
+    {
+      "tag": "thanks",
+      "patterns": ["thanks", "thank you", "appreciate it", "thx", "much appreciated"],
+      "responses": [
+        "You're welcome!",
+        "Anytime!",
+        "Glad I could help."
+      ]
+    },
+    {
+      "tag": "name",
+      "patterns": ["what is your name", "who are you", "what should i call you"],
+      "responses": [
+        "I'm a local rule-based chatbot, running entirely on your machine.",
+        "You can call me LocalBot."
+      ]
+    },
+    {
+      "tag": "help",
+      "patterns": ["help", "what can you do", "how does this work", "capabilities"],
+      "responses": [
+        "I can chat with you using pattern matching. Try greetings, asking my name, or saying thanks. Type 'quit' to exit.",
+        "I match what you type against known patterns and reply accordingly. No internet or API needed!"
+      ]
+    },
+    {
+      "tag": "fallback",
+      "patterns": [],
+      "responses": [
+        "I'm not sure I understand. Could you rephrase that?",
+        "Sorry, I don't have an answer for that yet.",
+        "Hmm, I didn't quite get that. Try asking differently."
+      ]
+    }
+  ]
+}
+"""Core matching engine for the rule-based chatbot.
+
+The engine loads a JSON file of intents (tag, patterns, responses) and
+matches user input against those patterns using normalized token overlap
+combined with sequence similarity. Everything runs locally using only the
+Python standard library -- no network calls, no API keys.
+"""
+
+from __future__ import annotations
+
+import json
+import random
+import re
+import string
+from dataclasses import dataclass
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import List, Optional
+
+
+DEFAULT_INTENTS_PATH = Path(__file__).parent / "intents.json"
+FALLBACK_TAG = "fallback"
+MATCH_THRESHOLD = 0.45
+
+
+@dataclass(frozen=True)
+class Intent:
+    """A single conversational intent."""
+
+    tag: str
+    patterns: List[str]
+    responses: List[str]
+
+
+@dataclass(frozen=True)
+class Match:
+    """Result of matching user input against known intents."""
+
+    intent: Intent
+    score: float
+    matched_pattern: Optional[str]
+
+
+def _normalize(text: str) -> str:
+    """Lowercase, strip punctuation, and collapse whitespace."""
+    text = text.lower().strip()
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
+def _similarity(a: str, b: str) -> float:
+    """Blend sequence similarity with token-overlap similarity.
+
+    Sequence similarity alone is poor for short chat phrases, so it is
+    blended with Jaccard token overlap to better capture intent for
+    free-form input like "hey there" vs "hey".
+    """
+    seq_score = SequenceMatcher(None, a, b).ratio()
+
+    tokens_a, tokens_b = set(a.split()), set(b.split())
+    if tokens_a and tokens_b:
+        overlap = len(tokens_a & tokens_b) / len(tokens_a | tokens_b)
+    else:
+        overlap = 0.0
+
+    return 0.5 * seq_score + 0.5 * overlap
+
+
+class ChatEngine:
+    """Loads intents and produces replies for user input.
+
+    Example:
+        >>> engine = ChatEngine()
+        >>> reply = engine.get_response("hello")
+        >>> isinstance(reply, str)
+        True
+    """
+
+    def __init__(
+        self,
+        intents_path: Path | str = DEFAULT_INTENTS_PATH,
+        match_threshold: float = MATCH_THRESHOLD,
+        seed: Optional[int] = None,
+    ) -> None:
+        self.intents_path = Path(intents_path)
+        self.match_threshold = match_threshold
+        self.intents: List[Intent] = self._load_intents(self.intents_path)
+        self._rng = random.Random(seed)
+        self._history: List[tuple[str, str]] = []
+
+    @staticmethod
+    def _load_intents(path: Path) -> List[Intent]:
+        if not path.exists():
+            raise FileNotFoundError(f"Intents file not found: {path}")
+
+        with path.open("r", encoding="utf-8") as fh:
+            raw = json.load(fh)
+
+        intents = [
+            Intent(
+                tag=item["tag"],
+                patterns=item.get("patterns", []),
+                responses=item.get("responses", []),
+            )
+            for item in raw.get("intents", [])
+        ]
+
+        if not any(i.tag == FALLBACK_TAG for i in intents):
+            raise ValueError(
+                f"Intents file must define a '{FALLBACK_TAG}' intent for unmatched input."
+            )
+
+        return intents
+
+    def _find_fallback(self) -> Intent:
+        return next(i for i in self.intents if i.tag == FALLBACK_TAG)
+
+    def classify(self, text: str) -> Match:
+        """Return the best-matching intent for the given input."""
+        normalized = _normalize(text)
+        best_intent: Optional[Intent] = None
+        best_pattern: Optional[str] = None
+        best_score = 0.0
+
+        for intent in self.intents:
+            if intent.tag == FALLBACK_TAG:
+                continue
+            for pattern in intent.patterns:
+                score = _similarity(normalized, _normalize(pattern))
+                if score > best_score:
+                    best_score, best_intent, best_pattern = score, intent, pattern
+
+        if best_intent is None or best_score < self.match_threshold:
+            return Match(intent=self._find_fallback(), score=best_score, matched_pattern=None)
+
+        return Match(intent=best_intent, score=best_score, matched_pattern=best_pattern)
+
+    def get_response(self, text: str) -> str:
+        """Classify input and return a randomly chosen response for the matched intent."""
+        if not text or not text.strip():
+            return "Please type something so I can respond."
+
+        match = self.classify(text)
+        response = self._rng.choice(match.intent.responses)
+        self._history.append((text, response))
+        return response
+
+    @property
+    def history(self) -> List[tuple[str, str]]:
+        """Return the (user_input, bot_response) pairs from this session."""
+        return list(self._history)
+          """Command-line interface for the local rule-based chatbot.
+
+Run with: python -m chatbot.cli
+"""
+
+from __future__ import annotations
+
+import sys
+
+from .engine import ChatEngine
+
+EXIT_WORDS = {"quit", "exit", "bye", "goodbye"}
+BANNER = (
+    "=" * 50 + "\n"
+    "  Local AI Chatbot (offline, rule-based)\n"
+    "  Type 'quit' or 'exit' to end the conversation.\n"
+    + "=" * 50
+)
+
+
+def run(engine: ChatEngine | None = None) -> None:
+    """Run an interactive chat loop in the terminal."""
+    engine = engine or ChatEngine()
+    print(BANNER)
+
+    while True:
+        try:
+            user_input = input("\nYou: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBot: Goodbye!")
+            break
+
+        if not user_input:
+            continue
+
+        reply = engine.get_response(user_input)
+        print(f"Bot: {reply}")
+
+        if user_input.lower() in EXIT_WORDS:
+            break
+
+
+if __name__ == "__main__":
+    sys.exit(run())
+          import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import pytest
+
+from chatbot.engine import ChatEngine, FALLBACK_TAG
+
+
+@pytest.fixture()
+def engine() -> ChatEngine:
+    return ChatEngine(seed=42)
+
+
+def test_greeting_matches_greeting_intent(engine: ChatEngine):
+    match = engine.classify("hello there")
+    assert match.intent.tag == "greeting"
+
+
+def test_unknown_input_falls_back(engine: ChatEngine):
+    match = engine.classify("xyzzy quantum banana flux")
+    assert match.intent.tag == FALLBACK_TAG
+
+
+def test_get_response_returns_nonempty_string(engine: ChatEngine):
+    reply = engine.get_response("hi")
+    assert isinstance(reply, str)
+    assert len(reply) > 0
+
+
+def test_empty_input_handled_gracefully(engine: ChatEngine):
+    reply = engine.get_response("   ")
+    assert "type something" in reply.lower()
+
+
+def test_history_records_conversation(engine: ChatEngine):
+    engine.get_response("hi")
+    engine.get_response("thanks")
+    assert len(engine.history) == 2
+    assert engine.history[0][0] == "hi"
+
+
+def test_missing_intents_file_raises(tmp_path):
+    missing = tmp_path / "does_not_exist.json"
+    with pytest.raises(FileNotFoundError):
+        ChatEngine(intents_path=missing)
+          pytest>=7.0
+          __pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+.DS_Store
+          # Local AI Chatbot
+
+A fully offline, rule-based chatbot written in pure Python. No API keys, no internet connection, no paid services required.
+
+## How it works
+
+The bot matches your input against known intents (`chatbot/intents.json`) using a blend of sequence similarity and token-overlap scoring, falling back to a generic response if nothing matches well enough.
+
+## Getting started
+
+\`\`\`bash
+git clone https://github.com/<your-username>/local-ai-chatbot.git
+cd local-ai-chatbot
+python -m chatbot.cli
+\`\`\`
+
+## Extending
+
+Add new intents to `chatbot/intents.json` — no code changes needed.
+
+## License
+
+MIT
+  
