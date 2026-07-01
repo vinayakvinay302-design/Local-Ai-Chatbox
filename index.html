@@ -7,38 +7,34 @@
 <style>
   * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, Arial, sans-serif;
+    font-family: Arial, sans-serif;
     max-width: 600px;
     margin: 40px auto;
     background: #f4f4f4;
     padding: 0 16px;
   }
-  h2 { margin-bottom: 4px; }
-  #status {
-    font-size: 13px;
-    margin-bottom: 12px;
-    color: #888;
-  }
-  #status.ok { color: #2e7d32; }
-  #status.error { color: #c62828; }
+  h2 { color: #333; }
   #chat {
     background: #fff;
     border-radius: 8px;
     padding: 16px;
-    height: 400px;
+    height: 420px;
     overflow-y: auto;
     border: 1px solid #ddd;
+    margin-bottom: 10px;
   }
   .msg {
     margin: 8px 0;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 10px 14px;
+    border-radius: 8px;
     max-width: 80%;
     word-wrap: break-word;
+    font-size: 14px;
+    line-height: 1.4;
   }
   .user { background: #daf1da; margin-left: auto; text-align: right; }
-  .bot { background: #eee; }
-  #inputRow { display: flex; margin-top: 10px; }
+  .bot  { background: #eeeeee; }
+  #inputRow { display: flex; gap: 8px; }
   #userInput {
     flex: 1;
     padding: 10px;
@@ -47,27 +43,155 @@
     font-size: 14px;
   }
   #sendBtn {
-    padding: 10px 16px;
-    margin-left: 8px;
+    padding: 10px 18px;
     border: none;
     background: #4CAF50;
     color: #fff;
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
+    font-weight: bold;
   }
-  #sendBtn:disabled { background: #aaa; cursor: not-allowed; }
+  #sendBtn:hover { background: #43a047; }
 </style>
 </head>
 <body>
-  <h2>Local AI Chatbot (offline, rule-based)</h2>
-  <div id="status">Loading intents...</div>
-  <div id="chat"></div>
-  <div id="inputRow">
-    <input type="text" id="userInput" placeholder="Type a message..." disabled />
-    <button id="sendBtn" disabled>Send</button>
-  </div>
 
-  <script src="chatbot.js"></script>
+<h2>🤖 Local AI Chatbot</h2>
+<div id="chat">
+  <div class="msg bot">Hello! I am ready to chat. Try saying hi, asking my name, or type <strong>help</strong>.</div>
+</div>
+<div id="inputRow">
+  <input type="text" id="userInput" placeholder="Type a message and press Enter..." autofocus />
+  <button id="sendBtn">Send</button>
+</div>
+
+<script>
+const intents = [
+  {
+    tag: "greeting",
+    patterns: ["hi", "hello", "hey", "good morning", "good evening", "whats up", "yo", "howdy"],
+    responses: ["Hello! How can I help you today?", "Hey there! What can I do for you?", "Hi! Ask me anything.", "Hey! Great to see you."]
+  },
+  {
+    tag: "goodbye",
+    patterns: ["bye", "goodbye", "see you", "see ya", "talk later", "exit", "quit", "cya"],
+    responses: ["Goodbye! Have a great day.", "See you later!", "Bye! Come back anytime.", "Take care!"]
+  },
+  {
+    tag: "thanks",
+    patterns: ["thanks", "thank you", "appreciate it", "thx", "thank u", "much appreciated", "ty"],
+    responses: ["You're welcome!", "Anytime!", "Glad I could help.", "No problem at all!"]
+  },
+  {
+    tag: "name",
+    patterns: ["what is your name", "who are you", "what should i call you", "your name", "whats your name"],
+    responses: ["I'm LocalBot, your offline AI chatbot!", "You can call me LocalBot.", "I'm LocalBot — running fully offline, no API needed!"]
+  },
+  {
+    tag: "help",
+    patterns: ["help", "what can you do", "how does this work", "capabilities", "commands", "options"],
+    responses: ["I can chat with you using pattern matching! Try: greetings, asking my name, saying thanks, asking how I work, or telling me a joke.", "Try saying hello, asking who I am, or asking how I work. Type anything and I'll do my best!"]
+  },
+  {
+    tag: "howwork",
+    patterns: ["how do you work", "how are you made", "are you ai", "are you a bot", "are you real"],
+    responses: ["I use pattern matching to understand your messages. No AI server or internet is needed!", "I'm rule-based — I compare your message to known patterns and pick the best response. Fully offline!"]
+  },
+  {
+    tag: "joke",
+    patterns: ["tell me a joke", "say something funny", "joke", "make me laugh"],
+    responses: ["Why do programmers prefer dark mode? Because light attracts bugs! 😄", "Why did the computer go to the doctor? It had a virus! 💻", "What do you call 8 hobbits? A hobbyte! 🧙"]
+  },
+  {
+    tag: "weather",
+    patterns: ["what is the weather", "weather today", "is it raining", "temperature outside"],
+    responses: ["I run fully offline so I can't check live weather. Try a weather app or Google!", "No internet access here — check weather.com or your phone for the forecast!"]
+  },
+  {
+    tag: "age",
+    patterns: ["how old are you", "what is your age", "when were you born", "your age"],
+    responses: ["I was just created — so I'm very new!", "Age is just a number, especially for a chatbot!"]
+  },
+  {
+    tag: "creator",
+    patterns: ["who made you", "who created you", "who built you", "who is your creator"],
+    responses: ["I was built by a developer using plain HTML and JavaScript — no API needed!", "A developer created me using simple pattern matching in JavaScript."]
+  },
+  {
+    tag: "fallback",
+    patterns: [],
+    responses: [
+      "I'm not sure I understand. Could you rephrase that?",
+      "Sorry, I don't have an answer for that yet. Try asking something else!",
+      "Hmm, I didn't quite get that. Type 'help' to see what I can do.",
+      "I'm still learning! Try asking me something else."
+    ]
+  }
+];
+
+function normalize(text) {
+  return text.toLowerCase().replace(/[^\w\s]/g, "").trim().replace(/\s+/g, " ");
+}
+
+function similarity(a, b) {
+  const setA = new Set(a.split(" ").filter(Boolean));
+  const setB = new Set(b.split(" ").filter(Boolean));
+  const intersection = [...setA].filter(t => setB.has(t)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function classify(text) {
+  const normalized = normalize(text);
+  let bestIntent = null;
+  let bestScore = 0;
+
+  for (const intent of intents) {
+    if (intent.tag === "fallback") continue;
+    for (const pattern of intent.patterns) {
+      const score = similarity(normalized, normalize(pattern));
+      if (score > bestScore) {
+        bestScore = score;
+        bestIntent = intent;
+      }
+    }
+  }
+
+  return (!bestIntent || bestScore < 0.25)
+    ? intents.find(i => i.tag === "fallback")
+    : bestIntent;
+}
+
+function getResponse(text) {
+  const intent = classify(text);
+  return intent.responses[Math.floor(Math.random() * intent.responses.length)];
+}
+
+function appendMessage(text, sender) {
+  const chat = document.getElementById("chat");
+  const div = document.createElement("div");
+  div.className = "msg " + sender;
+  div.innerHTML = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function handleSend() {
+  const input = document.getElementById("userInput");
+  const text = input.value.trim();
+  if (!text) return;
+  appendMessage(text, "user");
+  setTimeout(() => appendMessage(getResponse(text), "bot"), 300);
+  input.value = "";
+  input.focus();
+}
+
+document.getElementById("sendBtn").addEventListener("click", handleSend);
+document.getElementById("userInput").addEventListener("keypress", e => {
+  if (e.key === "Enter") handleSend();
+});
+</script>
+
 </body>
 </html>
