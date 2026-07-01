@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Chatbot</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .container {
+    background: #16213e;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 620px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    overflow: hidden;
+  }
+  .header {
+    background: linear-gradient(135deg, #0f3460, #533483);
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .avatar {
+    width: 42px; height: 42px;
+    background: #e94560;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .header-info h2 { color: #fff; font-size: 16px; }
+  .header-info span { color: #a8b2d8; font-size: 12px; }
+  .online-dot {
+    width: 8px; height: 8px;
+    background: #4cff72;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+  #chat {
+    height: 460px;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #16213e;
+  }
+  #chat::-webkit-scrollbar { width: 4px; }
+  #chat::-webkit-scrollbar-track { background: #16213e; }
+  #chat::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 4px; }
+  .msg {
+    padding: 10px 14px;
+    border-radius: 14px;
+    max-width: 78%;
+    font-size: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  .user {
+    background: linear-gradient(135deg, #0f3460, #533483);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .bot {
+    background: #0f3460;
+    color: #e0e0e0;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .typing {
+    background: #0f3460;
+    color: #a8b2d8;
+    align-self: flex-start;
+    font-style: italic;
+    font-size: 13px;
+    border-bottom-left-radius: 4px;
+  }
+  .suggestions {
+    padding: 10px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    background: #16213e;
+    border-top: 1px solid #0f3460;
+  }
+  .chip {
+    background: #0f3460;
+    color: #a8b2d8;
+    border: 1px solid #533483;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .chip:hover { background: #533483; color: #fff; }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    padding: 14px 16px;
+    background: #0f3460;
+    border-top: 1px solid #533483;
+  }
+  #userInput {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 24px;
+    border: 1px solid #533483;
+    background: #16213e;
+    color: #e0e0e0;
+    font-size: 14px;
+    outline: none;
+  }
+  #userInput::placeholder { color: #555e8a; }
+  #userInput:focus { border-color: #e94560; }
+  #sendBtn {
+    padding: 10px 18px;
+    border: none;
+    background: linear-gradient(135deg, #e94560, #533483);
+    color: #fff;
+    border-radius: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: opacity 0.2s;
+  }
+  #sendBtn:hover { opacity: 0.85; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="avatar">🤖</div>
+    <div class="header-info">
+      <h2>AI Chatbot</h2>
+      <span><span class="online-dot"></span>Online &middot; No API &middot; Fully Free</span>
+    </div>
+  </div>
+
+  <div id="chat">
+    <div class="msg bot">👋 Hi! I am your AI Chatbot. I can answer hundreds of questions on health, coding, science, jokes, motivation and more!<br><br>Try the quick buttons below or just type anything!</div>
+  </div>
+
+  <div class="suggestions">
+    <span class="chip" onclick="quickSend('Tell me a joke')">😄 Joke</span>
+    <span class="chip" onclick="quickSend('Motivate me')">💪 Motivation</span>
+    <span class="chip" onclick="quickSend('Health tips')">❤️ Health</span>
+    <span class="chip" onclick="quickSend('Teach me coding')">💻 Coding</span>
+    <span class="chip" onclick="quickSend('Fun fact')">🔥 Fun Fact</span>
+    <span class="chip" onclick="quickSend('What time is it')">⏰ Time</span>
+    <span class="chip" onclick="quickSend('Recommend a movie')">🎬 Movie</span>
+    <span class="chip" onclick="quickSend('Travel tips')">✈️ Travel</span>
+  </div>
+
+  <div class="input-row">
+    <input type="text" id="userInput" placeholder="Ask me anything..." autofocus />
+    <button id="sendBtn">Send</button>
+  </div>
+</div>
+
+<script>
+const intents = [
+
+  // GREETINGS
+  { tag:"greeting", patterns:["hi","hello","hey","good morning","good evening","good afternoon","whats up","yo","howdy","sup","greetings","hiya"],
+    responses:["Hello! How can I help you today? 😊","Hey there! What is on your mind?","Hi! I am ready to chat. Ask me anything!","Hey! Great to see you. What can I do for you?"] },
+
+  { tag:"howareyou", patterns:["how are you","how are you doing","how do you do","you good","are you okay","hows it going","how is life","how do you feel"],
+    responses:["I am doing great, thanks for asking! 😄","I am just a bot but feeling fantastic!","All good on my end! How about you?","Running perfectly! How can I help you today?"] },
+
+  { tag:"goodbye", patterns:["bye","goodbye","see you","see ya","talk later","cya","later","farewell","good bye","take care"],
+    responses:["Goodbye! Have a great day! 👋","See you later! Come back anytime!","Bye! Take care! 😊","Farewell! It was great chatting with you!"] },
+
+  { tag:"thanks", patterns:["thanks","thank you","appreciate it","thx","thank u","much appreciated","ty","cheers","many thanks","grateful"],
+    responses:["You are welcome! 😊","Anytime! Happy to help!","Glad I could help!","No problem at all! That is what I am here for!"] },
+
+  { tag:"sorry", patterns:["sorry","my bad","i apologize","excuse me","pardon","forgive me","oops","my mistake"],
+    responses:["No worries at all! 😊","It is totally fine!","No need to apologize, we are good!","Do not worry about it!"] },
+
+  { tag:"yes", patterns:["yes","yep","yeah","yup","sure","of course","absolutely","definitely","ok","okay","alright","correct"],
+    responses:["Great! What would you like to know?","Awesome! Let us continue! 😊","Perfect! Ask me anything!"] },
+
+  { tag:"no", patterns:["no","nope","nah","not really","i dont think so","negative"],
+    responses:["Okay, no problem!","Alright! Let me know if you need anything else.","Sure! Just ask whenever you are ready."] },
+
+  // ABOUT THE BOT
+  { tag:"name", patterns:["what is your name","who are you","what should i call you","your name","whats your name","tell me your name","introduce yourself"],
+    responses:["I am AI Chatbot, your free offline assistant! 🤖","You can call me AI Chatbot! I run fully in your browser with no API needed.","I am AI Chatbot! Built with HTML and JavaScript, completely free to use."] },
+
+  { tag:"howwork", patterns:["how do you work","how are you made","are you ai","are you a bot","are you real","how were you built","what are you","are you human","are you a robot"],
+    responses:["I use pattern matching to understand your messages. No server or internet needed! 🧠","I am rule-based AI: I compare your words to known patterns and pick the best answer. Fully offline!","I am a chatbot built with JavaScript. No API, no server, everything runs right in your browser!"] },
+
+  { tag:"creator", patterns:["who made you","who created you","who built you","who is your creator","who programmed you","who designed you"],
+    responses:["I was built by a developer using plain HTML and JavaScript! 💻","A developer created me using simple pattern matching, no fancy AI service needed!","I was handcrafted in HTML, CSS and JavaScript. Open source and free!"] },
+
+  { tag:"age", patterns:["how old are you","what is your age","when were you born","your age","how long have you existed"],
+    responses:["I was just created, very fresh and new! 🆕","Age is just a number for a chatbot! I am always learning."] },
+
+  { tag:"help", patterns:["help","what can you do","capabilities","commands","options","what do you know","topics","what can i ask","guide","menu"],
+    responses:["I can answer about: 😊 greetings, 😄 jokes, 💪 motivation, ❤️ health, 💻 coding, 🔬 science, 📚 history, 🌍 geography, 🎬 movies, 🎵 music, 🍕 food, ✈️ travel, 💰 money, 📱 tech, sports, animals, space and much more! Just ask!"] },
+
+  { tag:"cannotdo", patterns:["can you browse","can you search","can you access internet","are you connected","real time","live data","current news","latest news"],
+    responses:["I run fully offline so I cannot browse the internet or access live data. For real time info try Google!","No internet connection here. I work purely from built in knowledge. Check Google for live updates!"] },
+
+  // TIME AND DATE
+  { tag:"time", patterns:["what time is it","current time","tell me the time","what is the time now","time please","whats the time"],
+    responses:["__TIME__"] },
+
+  { tag:"date", patterns:["what is todays date","what day is it","current date","todays date","what month is it","what year is it","what is today"],
+    responses:["__DATE__"] },
+
+  // MATH
+  { tag:"math", patterns:["calculate","math problem","solve","what is 2 plus 2","addition","subtraction","multiplication","division","percentage","compute"],
+    responses:["Sure! Type your math expression like: 5 + 3, 10 * 4, 100 / 5, 2 ** 8 and I will calculate it! 🔢"] },
+
+  // FUN AND ENTERTAINMENT
+  { tag:"joke", patterns:["tell me a joke","say something funny","joke","make me laugh","funny","humor","crack a joke","another joke","one more joke"],
+    responses:[
+      "Why do programmers prefer dark mode? Because light attracts bugs! 😄",
+      "Why did the computer go to the doctor? It had a virus! 💻",
+      "What do you call 8 hobbits? A hobbyte! 🧙",
+      "I told my computer I needed a break. Now it keeps sending me Kit Kat ads! 🍫",
+      "Why do Java developers wear glasses? Because they do not C#! 👓",
+      "Why was the math book sad? It had too many problems! 📚",
+      "What did the ocean say to the beach? Nothing, it just waved! 🌊",
+      "Why do not scientists trust atoms? Because they make up everything! ⚛️",
+      "I am reading a book about anti gravity. It is impossible to put down! 📖",
+      "Why did the scarecrow win an award? Because he was outstanding in his field! 🌾",
+      "Why do cows wear bells? Because their horns do not work! 🐄",
+      "What do you call cheese that is not yours? Nacho cheese! 🧀"
+    ] },
+
+  { tag:"riddle", patterns:["tell me a riddle","give me a riddle","riddle me this","riddle","brain teaser","puzzle"],
+    responses:[
+      "I speak without a mouth and hear without ears. What am I? (Answer: An echo!) 🔊",
+      "The more you take, the more you leave behind. What am I? (Answer: Footsteps!) 👣",
+      "What has hands but cannot clap? (Answer: A clock!) ⏰",
+      "What gets wetter the more it dries? (Answer: A towel!) 🧺",
+      "I have cities but no houses, mountains but no trees. What am I? (Answer: A map!) 🗺️",
+      "What has to be broken before you can use it? (Answer: An egg!) 🥚"
+    ] },
+
+  { tag:"funfact", patterns:["fun fact","give me a fact","tell me something interesting","interesting fact","did you know","amazing fact","cool fact","random fact"],
+    responses:[
+      "🍯 Honey never spoils. Archaeologists found 3000 year old honey in Egyptian tombs that was still edible!",
+      "🦩 A group of flamingos is called a flamboyance!",
+      "🍌 Bananas are technically berries, but strawberries are not!",
+      "🐙 Octopuses have three hearts and blue blood!",
+      "🌙 The moon is moving away from Earth at about 3.8 cm per year!",
+      "🦷 Teeth are the only part of the human body that cannot heal themselves!",
+      "🌊 The Pacific Ocean is larger than all land on Earth combined!",
+      "⚡ Lightning strikes Earth about 100 times every second!",
+      "🧠 Your brain generates about 70,000 thoughts per day!",
+      "🐘 Elephants are the only animals that cannot jump!",
+      "🌍 There are more trees on Earth than stars in the Milky Way galaxy!",
+      "🐝 A single bee produces only about 1/12 teaspoon of honey in its lifetime!"
+    ] },
+
+  { tag:"movies", patterns:["recommend a movie","good movie","movie suggestion","what movie should i watch","best movies","movies to watch","film recommendation","what to watch","popular movies"],
+    responses:[
+      "🎬 Try Inception (2010), a mind bending thriller you will love!",
+      "🎬 The Dark Knight is widely considered one of the greatest films ever made!",
+      "🎬 Interstellar combines stunning visuals with deep emotional storytelling!",
+      "🎬 For comedy try The Grand Budapest Hotel or Superbad!",
+      "🎬 If you like action, the John Wick series is incredibly well crafted!",
+      "🎬 For sci fi try The Matrix, Dune, or Ex Machina!"
+    ] },
+
+  { tag:"music", patterns:["recommend music","good song","music suggestion","what should i listen to","best songs","music recommendation","songs to listen","popular songs","what music"],
+    responses:[
+      "🎵 Try lo fi hip hop for focus and study sessions!",
+      "🎵 Classic rock never gets old. Try Led Zeppelin or Pink Floyd!",
+      "🎵 For pop, The Weeknd, Ed Sheeran and Taylor Swift are always great!",
+      "🎵 Feeling chill? Try acoustic or jazz playlists on Spotify or YouTube!",
+      "🎵 For workout energy try hip hop or electronic music!"
+    ] },
+
+  { tag:"sports", patterns:["do you like sports","favourite sport","best sport","talk about sports","football","cricket","basketball","tennis","soccer","sport"],
+    responses:[
+      "🏏 Cricket is massive in India. Do you follow the IPL?",
+      "⚽ Football (soccer) is the world's most popular sport with 4 billion fans!",
+      "🏀 Basketball has become a global phenomenon thanks to the NBA!",
+      "🎾 Tennis Grand Slams like Wimbledon and the US Open are iconic!",
+      "Sports bring people together! What is your favourite sport?"
+    ] },
+
+  { tag:"games", patterns:["recommend a game","best games","video games","gaming","what game should i play","popular games","game recommendation","pc games","mobile games"],
+    responses:[
+      "🎮 For PC: Minecraft, GTA V, Cyberpunk 2077 and Elden Ring are incredible!",
+      "🎮 For mobile: BGMI, Free Fire, Clash of Clans and Subway Surfers are popular!",
+      "🎮 For story games: The Last of Us, Red Dead Redemption 2 and God of War are masterpieces!",
+      "🎮 For multiplayer: Valorant, CS GO and Among Us are super fun with friends!"
+    ] },
+
+  { tag:"books", patterns:["recommend a book","best books","what book should i read","book suggestion","good books","books to read","reading recommendation"],
+    responses:[
+      "📚 Rich Dad Poor Dad by Robert Kiyosaki is a must read for financial knowledge!",
+      "📚 Atomic Habits by James Clear will change how you think about habits!",
+      "📚 The Alchemist by Paulo Coelho is a beautiful story about following your dreams!",
+      "📚 For tech: Clean Code by Robert C. Martin is brilliant for developers!",
+      "📚 For motivation: Think and Grow Rich by Napoleon Hill is timeless!"
+    ] },
+
+  // KNOWLEDGE
+  { tag:"science", patterns:["tell me about science","science fact","what is gravity","speed of light","what is dna","atoms","physics","chemistry","biology","scientific"],
+    responses:[
+      "🔬 The speed of light is approximately 299,792 km per second!",
+      "🧬 DNA is the molecule that carries genetic information in all living things!",
+      "🍎 Gravity is the force that pulls objects toward each other. The more mass, the stronger the pull!",
+      "⚛️ Atoms are the basic building blocks of all matter. Everything is made of them!",
+      "🌡️ Absolute zero (-273.15 degrees C) is the coldest temperature theoretically possible!"
+    ] },
+
+  { tag:"space", patterns:["tell me about space","space facts","planets","solar system","stars","universe","galaxy","nasa","black hole","mars","moon","sun","astronaut"],
+    responses:[
+      "🚀 The universe is approximately 13.8 billion years old!",
+      "🌑 A black hole's gravity is so strong that not even light can escape it!",
+      "🌍 Earth is the only known planet to support life so far!",
+      "☀️ The Sun makes up 99.86 percent of the mass of our entire solar system!",
+      "🌠 There are more stars in the universe than grains of sand on all of Earth's beaches!",
+      "🪐 Saturn's rings span up to 282,000 km wide and are made of ice and rock!"
+    ] },
+
+  { tag:"history", patterns:["tell me about history","history fact","who was gandhi","world war","ancient history","historical event","indian history","famous historical"],
+    responses:[
+      "🏯 The Great Wall of China took over 1,000 years to build!",
+      "🇮🇳 Mahatma Gandhi led India to independence through nonviolent resistance, an inspiration to the world!",
+      "⚔️ World War II (1939 to 1945) was the deadliest conflict in human history with over 70 million casualties.",
+      "🏛️ Ancient Egypt built the pyramids over 4,500 years ago and they are still standing today!",
+      "🌍 India gained independence on 15th August 1947 after nearly 200 years of British rule!"
+    ] },
+
+  { tag:"geography", patterns:["capital of india","largest country","smallest country","geography","capital city","which country","longest river","tallest mountain","deepest ocean","continent"],
+    responses:[
+      "🇮🇳 The capital of India is New Delhi!",
+      "🌍 Russia is the largest country in the world by area at 17.1 million km squared!",
+      "⛪ Vatican City is the smallest country in the world!",
+      "🏔️ Mount Everest is the tallest mountain at 8,849 metres above sea level!",
+      "🌊 The Pacific Ocean is the deepest and largest ocean on Earth!",
+      "🌿 The Amazon rainforest produces 20 percent of the world's oxygen!"
+    ] },
+
+  { tag:"animals", patterns:["tell me about animals","animal facts","fastest animal","largest animal","smartest animal","interesting animals","wildlife","nature","pets"],
+    responses:[
+      "🐆 The cheetah is the fastest land animal, reaching speeds of 112 km/h!",
+      "🐋 The blue whale is the largest animal on Earth. Its heart alone is the size of a car!",
+      "🦜 Parrots can learn hundreds of words and even understand context!",
+      "🐬 Dolphins are considered one of the smartest animals. They even have names for each other!",
+      "🐘 Elephants are the only animals that can recognise themselves in a mirror!",
+      "🦁 A lion's roar can be heard from 8 km away!"
+    ] },
+
+  { tag:"mathfacts", patterns:["math fact","interesting math","mathematics","numbers","pi","fibonacci","prime numbers","interesting number"],
+    responses:[
+      "🔢 Pi (3.14159...) is irrational. Its decimal goes on forever without repeating!",
+      "📐 The Fibonacci sequence appears everywhere in nature, in flowers, shells and galaxies!",
+      "🔢 Zero was invented in India by the mathematician Brahmagupta in 628 AD!",
+      "📊 If you shuffle a deck of cards the order has almost certainly never existed before in history!"
+    ] },
+
+  // TECHNOLOGY
+  { tag:"coding", patterns:["teach me coding","how to code","learn programming","best programming language","what is python","coding tips","how to program","start coding","learn to code","programming"],
+    responses:[
+      "💻 Python is great for beginners. Simple syntax and extremely powerful!",
+      "🌐 To start web development learn HTML then CSS then JavaScript in that order!",
+      "🐍 Python is used for AI, data science, web and automation. Very versatile!",
+      "📱 For mobile apps learn Flutter (Dart) or React Native (JavaScript)!",
+      "🆓 Free resources: freeCodeCamp, The Odin Project, MDN Docs and CS50 on YouTube!"
+    ] },
+
+  { tag:"ai", patterns:["what is ai","artificial intelligence","machine learning","what is chatgpt","tell me about ai","deep learning","neural network","ai tools","ai future"],
+    responses:[
+      "🤖 AI stands for Artificial Intelligence. Machines designed to simulate human thinking!",
+      "📊 Machine Learning is where computers learn patterns from data without being explicitly programmed!",
+      "💬 ChatGPT is an AI by OpenAI that uses a Large Language Model to generate human like text!",
+      "🧠 Deep Learning uses neural networks inspired by the human brain. It powers image recognition and voice assistants!",
+      "🔮 AI is expected to transform every industry including healthcare, education and finance!"
+    ] },
+
+  { tag:"internet", patterns:["what is the internet","how does internet work","who invented internet","www","what is wifi","what is 5g","broadband","network"],
+    responses:[
+      "🌐 The internet is a global network of billions of connected computers!",
+      "🕸️ Tim Berners Lee invented the World Wide Web in 1989!",
+      "📡 5G is the 5th generation of mobile networks, up to 100 times faster than 4G!",
+      "📶 WiFi stands for Wireless Fidelity and uses radio waves to connect devices!"
+    ] },
+
+  { tag:"phone", patterns:["best phone","smartphone","which phone to buy","iphone","android","samsung","mobile recommendation","new phone"],
+    responses:[
+      "📱 For premium: iPhone 15 Pro or Samsung Galaxy S24 Ultra are top picks!",
+      "💰 For mid range in India: OnePlus, Nothing Phone and Pixel offer great value!",
+      "🤔 iPhone for smooth software, Samsung for versatility, Google Pixel for camera quality!",
+      "📱 It depends on your budget. What do you mainly use your phone for?"
+    ] },
+
+  { tag:"computer", patterns:["best laptop","which laptop","computer recommendation","gaming laptop","laptop for coding","laptop suggestion","pc build","desktop computer"],
+    responses:[
+      "💻 For coding: MacBook Air M2, Dell XPS or Lenovo ThinkPad are excellent!",
+      "🎮 For gaming: ASUS ROG, MSI or Razer laptops with RTX 4060 GPU are top picks!",
+      "💡 For students on a budget: Acer Aspire, HP Pavilion or Lenovo IdeaPad offer great value!",
+      "🖥️ Desktops always give better value for money than laptops at the same price!"
+    ] },
+
+  { tag:"cybersecurity", patterns:["cyber security","hacking","how to stay safe online","password tips","vpn","data privacy","protect my data","online safety","phishing"],
+    responses:[
+      "🔒 Use strong unique passwords for every account. A password manager helps a lot!",
+      "🛡️ Enable two factor authentication (2FA) on all your important accounts!",
+      "📧 Never click suspicious links in emails. Phishing is the number 1 way accounts get hacked!",
+      "🌐 Use a VPN on public WiFi to encrypt your internet traffic!",
+      "🔄 Keep your software and apps updated. Updates often patch security holes!"
+    ] },
+
+  { tag:"socialmedia", patterns:["social media","instagram","facebook","twitter","youtube","tiktok","snapchat","linkedin","reddit","social network"],
+    responses:[
+      "📸 Instagram is best for photos, reels and lifestyle content!",
+      "💼 LinkedIn is essential for professionals and job seekers!",
+      "🎥 YouTube is the world's number 2 search engine. Great for learning anything!",
+      "🐦 Twitter/X is great for real time news and conversations!",
+      "💡 Tip: Limit social media to 30 minutes a day for better mental health and productivity!"
+    ] },
+
+  // HEALTH AND FITNESS
+  { tag:"health", patterns:["health tips","how to stay healthy","fitness tips","exercise","healthy lifestyle","healthy habits","stay fit","be healthy","wellness","physical health"],
+    responses:[
+      "💧 Drink at least 8 glasses of water a day to stay hydrated!",
+      "🏃 Exercise for at least 30 minutes a day. Even a brisk walk counts!",
+      "🥗 Eat more fruits and vegetables, sleep 7 to 8 hours and reduce stress!",
+      "🧘 Yoga and meditation reduce stress and improve both physical and mental health!",
+      "🚶 The WHO recommends 10,000 steps per day for a healthy lifestyle!"
+    ] },
+
+  { tag:"food", patterns:["recommend food","what should i eat","healthy food","favourite food","best food","recipe","nutrition","diet","calories","meal"],
+    responses:[
+      "🍛 Biryani, Dal and Sabzi. Classic Indian meals are nutritious and delicious!",
+      "🥗 For weight loss: focus on high protein, low refined carbs and plenty of vegetables!",
+      "🍳 Eggs are one of the most nutritious foods. Protein rich and versatile!",
+      "🥑 Avocado, nuts, salmon and leafy greens are superfoods everyone should eat!",
+      "🍕 It is okay to enjoy your favourite foods. Balance and moderation is the key!"
+    ] },
+
+  { tag:"sleep", patterns:["how much sleep","sleep tips","cant sleep","insomnia","better sleep","sleep well","sleep problem","sleeping","improve sleep","sleep schedule"],
+    responses:[
+      "😴 Adults need 7 to 9 hours of sleep per night for optimal health!",
+      "📵 Avoid screens at least 30 minutes before bed. Blue light disrupts melatonin!",
+      "🌙 Keep a consistent sleep schedule. Wake up at the same time every day!",
+      "🛌 Keep your room cool, dark and quiet for the best sleep!",
+      "☕ Avoid caffeine after 3 PM. It can disrupt sleep even hours later!"
+    ] },
+
+  { tag:"mentalhealth", patterns:["mental health","anxiety","depression","stress","how to deal with stress","mental wellness","therapy","overwhelmed","panic attack","mindfulness"],
+    responses:[
+      "🧠 Mental health is just as important as physical health. Never neglect it!",
+      "🧘 Practice mindfulness. 5 minutes of deep breathing can significantly reduce anxiety!",
+      "🗣️ Talk to someone you trust, a friend, family or professional therapist!",
+      "📓 Journaling your thoughts helps process emotions and reduce stress!",
+      "🌿 Exercise, sunlight, sleep and social connection are natural mood boosters!"
+    ] },
+
+  { tag:"weightloss", patterns:["how to lose weight","weight loss tips","lose belly fat","diet plan","weight loss","fat loss","slim down","how to get fit","workout for weight loss"],
+    responses:[
+      "⚖️ Weight loss means calories out being more than calories in. Track your intake and stay in a deficit!",
+      "🏋️ Combine cardio (running, cycling) with strength training for best fat loss results!",
+      "🥗 Cut out sugary drinks, processed foods and excessive junk food!",
+      "🚶 Even a 30 minute daily walk can make a significant difference over time!",
+      "💡 Sustainable weight loss is 0.5 to 1 kg per week. Slow and steady wins!"
+    ] },
+
+  { tag:"vitamins", patterns:["what vitamins","vitamin deficiency","vitamin d","vitamin b12","iron deficiency","supplements","nutrition deficiency","which vitamins to take"],
+    responses:[
+      "☀️ Vitamin D deficiency is very common in India. Get 20 minutes of sunlight daily!",
+      "🥩 Vitamin B12 is mainly found in animal products. Vegans should supplement it!",
+      "🌿 Iron deficiency causes anaemia. Eat spinach, lentils and red meat for iron!",
+      "🍊 Vitamin C boosts immunity. Found in oranges, guava, lemons and capsicum!",
+      "💊 Always consult a doctor before starting any supplement regime!"
+    ] },
+
+  // EMOTIONS
+  { tag:"sad", patterns:["i am sad","feeling down","i feel lonely","im depressed","not feeling well","bad day","i am upset","feeling blue","crying","heartbroken","feeling low","i feel bad"],
+    responses:[
+      "💙 I am sorry to hear that. Remember, tough times never last but tough people do.",
+      "🌟 It is okay to feel sad sometimes. Talk to someone you trust, it really helps!",
+      "💫 You matter more than you know. Things will get better one day at a time.",
+      "🤗 Even on your darkest days you are never alone. I am here to chat anytime!",
+      "🌈 After every storm comes a rainbow. Hang in there, better days are ahead!"
+    ] },
+
+  { tag:"happy", patterns:["i am happy","feeling great","good mood","im excited","great day","feeling awesome","i feel good","wonderful","amazing day","on top of the world"],
+    responses:[
+      "🎉 That is amazing! Keep that positive energy going!",
+      "😊 Love to hear it! Happiness looks good on you!",
+      "🌟 Awesome! Share that good energy with everyone around you!",
+      "🎊 Yes! Celebrate the good moments. You deserve it!"
+    ] },
+
+  { tag:"angry", patterns:["i am angry","i am mad","so frustrated","feeling angry","annoyed","irritated","i hate","furious","rage"],
+    responses:[
+      "😤 I understand your frustration. Take a deep breath, it really helps!",
+      "🧘 Try stepping away for a few minutes. A short walk can cool things down!",
+      "💡 Anger is a natural emotion. What matters is how we respond to it.",
+      "🌬️ Count to 10 slowly and breathe deeply. You have got this!"
+    ] },
+
+  { tag:"lonely", patterns:["i feel lonely","no friends","alone","isolated","nobody cares","no one understands me","feeling isolated"],
+    responses:[
+      "🤗 Feeling lonely is really tough but you are not as alone as you might think!",
+      "💙 Try joining clubs, online communities or classes to meet like minded people!",
+      "🌟 Remember: quality over quantity with friendships. Even one good friend matters!",
+      "📞 Reach out to someone, family, old friends, or even chat with me! You are valued."
+    ] },
+
+  { tag:"motivation", patterns:["motivate me","i need motivation","inspire me","give me a quote","feeling lazy","encouragement","im giving up","i cant do it","need inspiration","motivational quote"],
+    responses:[
+      "🚀 The secret of getting ahead is getting started. Mark Twain",
+      "💪 It does not matter how slowly you go as long as you do not stop. Confucius",
+      "🌟 You have got this! Every expert was once a beginner. Keep going!",
+      "🔥 Success is not final, failure is not fatal: it is the courage to continue that counts. Churchill",
+      "⭐ Believe you can and you are halfway there. Theodore Roosevelt",
+      "💡 The only way to do great work is to love what you do. Steve Jobs",
+      "🏆 Small progress is still progress. Keep showing up every single day!"
+    ] },
+
+  { tag:"stress", patterns:["i am stressed","too much stress","overwhelmed","too much work","burnout","pressure","cant handle it","stressed out","anxious","worried"],
+    responses:[
+      "🧘 Take a 5 minute break and do some deep breathing. It genuinely helps!",
+      "📝 Write down what is stressing you. Externalising problems makes them feel smaller!",
+      "🚶 A short walk outside can clear your mind significantly!",
+      "⏰ Try breaking big tasks into smaller steps. One thing at a time!",
+      "🌿 Remember: you can only do your best. It is okay to ask for help!"
+    ] },
+
+  // CAREER AND EDUCATION
+  { tag:"career", patterns:["career advice","best career","which career to choose","career guidance","job advice","career path","what career should i pick","future career","career options"],
+    responses:[
+      "💼 Choose a career aligned with your interests and skills. Passion sustains long term success!",
+      "📈 High demand careers: Software Engineering, Data Science, AI/ML, Healthcare and Finance!",
+      "🎯 Take aptitude tests and internships to explore what you truly enjoy!",
+      "🌐 Tech careers are globally in demand. Coding skills open doors everywhere!",
+      "💡 Do not just chase money. Find work that gives you purpose and pays well!"
+    ] },
+
+  { tag:"study", patterns:["study tips","how to study","study techniques","focus while studying","exam tips","prepare for exam","concentration","how to focus","study better","memorize"],
+    responses:[
+      "📚 Use the Pomodoro technique: study 25 minutes, break 5 minutes. Very effective!",
+      "✍️ Write notes by hand. It improves memory retention compared to typing!",
+      "🔄 Practice spaced repetition: review material at increasing intervals!",
+      "😴 Never pull all nighters. Sleep solidifies memory better than cramming!",
+      "📵 Put your phone on Do Not Disturb while studying. Distractions kill focus!"
+    ] },
+
+  { tag:"college", patterns:["college tips","university life","college advice","first year college","best college","university","higher education","campus life"],
+    responses:[
+      "🎓 Network actively in college. Your connections matter as much as your degree!",
+      "💡 Join clubs, societies and hackathons. They build real world skills!",
+      "📊 Maintain balance: academics, social life, health and personal projects!",
+      "🏆 Internships during college are gold. Real experience beats marks any day!",
+      "📚 Read beyond your syllabus. Curiosity is the hallmark of great students!"
+    ] },
+
+  { tag:"job", patterns:["how to get a job","job tips","find a job","job search","interview tips","resume tips","job application","how to crack interview","first job","fresher job"],
+    responses:[
+      "💼 Tailor your resume for each job. Highlight relevant skills and achievements!",
+      "🤝 Networking is key: LinkedIn, college alumni and referrals fill most jobs!",
+      "🎯 Research the company thoroughly before every interview!",
+      "📝 Practice the STAR method for interviews: Situation, Task, Action, Result!",
+      "🚀 Apply widely, follow up politely and do not give up. Job searching takes time!"
+    ] },
+
+  { tag:"freelance", patterns:["how to freelance","freelancing","work from home","remote work","online work","earn online","gig work","fiverr","upwork","freelancer"],
+    responses:[
+      "💻 Freelancing platforms: Fiverr, Upwork and Freelancer.com are great places to start!",
+      "🎯 Build a strong portfolio first. Clients hire based on proof of work!",
+      "💰 High paying freelance skills: Web Development, UI/UX Design, Copywriting and Video Editing!",
+      "🌐 Start with small gigs to build reviews then raise your rates!",
+      "📈 Freelancing takes 3 to 6 months to gain momentum. Be patient and consistent!"
+    ] },
+
+  // MONEY AND FINANCE
+  { tag:"money", patterns:["money tips","how to save money","financial advice","personal finance","budgeting","manage money","save money","financial planning","money management"],
+    responses:[
+      "💰 Follow the 50/30/20 rule: 50 percent needs, 30 percent wants, 20 percent savings!",
+      "📊 Track every rupee you spend. Awareness is the first step to saving!",
+      "🏦 Build an emergency fund of 3 to 6 months of expenses before investing!",
+      "💡 Pay yourself first. Automate savings before spending!",
+      "📱 Use apps like Walnut, Money Manager or YNAB to track spending!"
+    ] },
+
+  { tag:"invest", patterns:["how to invest","investment tips","stock market","mutual funds","sip","where to invest","investment advice","returns","wealth building"],
+    responses:[
+      "📈 Start investing early. Compounding grows your money exponentially over time!",
+      "🏦 For beginners in India: SIP in mutual funds via Zerodha, Groww or Kuvera!",
+      "📊 Diversify: do not put all eggs in one basket. Mix equity, debt and gold!",
+      "⚠️ Never invest money you cannot afford to lose, especially in stocks!",
+      "💡 Index funds consistently outperform most active fund managers long term!"
+    ] },
+
+  { tag:"crypto", patterns:["what is crypto","bitcoin","ethereum","cryptocurrency","blockchain","crypto investment","nft","web3","defi"],
+    responses:[
+      "₿ Bitcoin is the world's first and largest cryptocurrency by market cap!",
+      "🔗 Blockchain is the technology behind crypto. A decentralised tamper proof ledger!",
+      "⚠️ Crypto is highly volatile. Only invest what you can afford to completely lose!",
+      "🌐 Ethereum is the number 2 crypto and powers most smart contracts and DeFi apps!",
+      "💡 Research thoroughly before investing in any cryptocurrency!"
+    ] },
+
+  // TRAVEL
+  { tag:"travel", patterns:["travel tips","where should i travel","best places to visit","recommend a place","travel destination","places to visit in india","international travel","vacation","holiday","trip"],
+    responses:[
+      "🇮🇳 India: Goa, Kerala backwaters, Rajasthan, Manali and Ladakh are unmissable!",
+      "🌏 Asia: Japan, Thailand, Bali, Singapore and Sri Lanka are incredible!",
+      "🌍 Europe: Paris, Rome, Barcelona, Amsterdam and Prague are iconic!",
+      "🏔️ For adventure: trek in Nepal, safari in Kenya or dive in the Maldives!",
+      "💡 Travel tip: Book flights 6 to 8 weeks in advance for the best prices!"
+    ] },
+
+  { tag:"passport", patterns:["passport","visa","how to apply passport","visa application","travel document","apply for visa","tourist visa"],
+    responses:[
+      "🛂 Apply for an Indian passport online at passportindia.gov.in!",
+      "🌐 Many countries offer e Visa. Check the embassy website for the latest requirements!",
+      "📋 Common visa documents: passport, photos, bank statement and itinerary!",
+      "✈️ Apply for visa at least 4 to 6 weeks before your travel date!"
+    ] },
+
+  // RELATIONSHIPS AND SOCIAL
+  { tag:"friendship", patterns:["how to make friends","friendship tips","making friends","how to keep friends","social skills","meet new people","be more social","shy person"],
+    responses:[
+      "😊 Be genuinely interested in others. Ask questions and listen actively!",
+      "🤝 Show up consistently. Friendships grow through repeated interactions over time!",
+      "💬 Be vulnerable and authentic. People connect with realness not perfection!",
+      "🎯 Join clubs or communities around your interests to meet like minded people!",
+      "📱 Follow up after meeting someone. A simple message goes a long way!"
+    ] },
+
+  { tag:"relationship", patterns:["relationship advice","love advice","how to impress","dating tips","relationship problems","breakup","boyfriend girlfriend","how to get a girlfriend","how to get a boyfriend"],
+    responses:[
+      "❤️ Be genuine and confident. People are attracted to those comfortable in their skin!",
+      "💬 Communication is the foundation of every healthy relationship!",
+      "🌹 Show appreciation and small gestures. They matter more than grand ones!",
+      "💔 After a breakup: give yourself time, lean on friends and focus on self growth!",
+      "🎯 Respect, trust and honesty are the three pillars of a healthy relationship!"
+    ] },
+
+  // PHILOSOPHY AND MINDSET
+  { tag:"philosophy", patterns:["meaning of life","what is happiness","purpose of life","why are we here","philosophy","existence","consciousness","free will","what is success","is life real"],
+    responses:[
+      "🤔 The unexamined life is not worth living. Socrates",
+      "🌟 Happiness comes from within. It is about meaning, connection and growth, not things!",
+      "💭 The meaning of life is a question each person must answer for themselves!",
+      "🌿 Many philosophers argue: life has the meaning you choose to give it!"
+    ] },
+
+  { tag:"success", patterns:["what is success","how to be successful","keys to success","successful life","achieve success","how to succeed","secret to success"],
+    responses:[
+      "🏆 Success means consistent effort plus right strategy plus patience plus resilience!",
+      "🎯 Define YOUR version of success. Do not copy someone else's definition!",
+      "📈 Most overnight successes took 10 years. Keep working!",
+      "💡 Read, learn, apply and repeat. That is the formula for long term success!",
+      "🌟 Success is walking from failure to failure with no loss of enthusiasm. Churchill"
+    ] },
+
+  { tag:"habits", patterns:["how to build habits","good habits","break bad habits","morning routine","daily routine","productivity habits","habit tips","discipline"],
+    responses:[
+      "⚡ Start tiny. Make habits so small they are impossible to skip at the start!",
+      "📅 Consistency beats intensity. 5 minutes daily beats 2 hours once a week!",
+      "🔁 Stack new habits onto existing ones. After I brush I will meditate.",
+      "📊 Track your habits on a calendar. Do not break the chain!",
+      "📚 Read Atomic Habits by James Clear. The best book on habit formation!"
+    ] },
+
+  // INDIA
+  { tag:"india", patterns:["india","tell me about india","india facts","indian culture","hindustan","bharat","about india"],
+    responses:[
+      "🇮🇳 India is the world's largest democracy with 1.4 billion people!",
+      "🏛️ India has one of the world's oldest civilisations with over 5,000 years of history!",
+      "🌍 India is the world's fastest growing major economy and a global tech hub!",
+      "🎭 India has 22 official languages and incredible cultural diversity!",
+      "🚀 ISRO successfully landed on the Moon's south pole in 2023 with Chandrayaan 3!"
+    ] },
+
+  { tag:"ipl", patterns:["ipl","indian premier league","cricket team","best ipl team","ipl winner","who won ipl","t20 cricket"],
+    responses:[
+      "🏏 IPL is the world's most popular T20 cricket league!",
+      "🏆 Mumbai Indians hold the record for most IPL titles!",
+      "⭐ MS Dhoni's CSK is one of the most beloved franchises in IPL history!",
+      "🌟 Virat Kohli is the all time leading run scorer in IPL history!"
+    ] },
+
+  // MISC
+  { tag:"weather", patterns:["what is the weather","weather today","is it raining","temperature outside","will it rain","forecast"],
+    responses:[
+      "🌤️ I run fully offline so I cannot check live weather. Try Google or a weather app!",
+      "📱 Check your phone's weather app or search Google for the latest forecast!"
+    ] },
+
+  { tag:"compliment", patterns:["you are great","you are amazing","you are awesome","good bot","well done","nice bot","i like you","you are smart","great job","you are the best"],
+    responses:[
+      "Thank you so much! That really means a lot! 😊",
+      "Aww you are too kind! 🤖💙",
+      "Thank you! You are pretty awesome yourself! 🌟",
+      "That made my circuits happy! 😄"
+    ] },
+
+  { tag:"insult", patterns:["you are stupid","you are dumb","you are useless","bad bot","you suck","worst bot","i hate you","shut up"],
+    responses:[
+      "I am sorry to hear that. I am doing my best to help! 😊",
+      "Fair enough! I am still learning. Let me know how I can do better!",
+      "No hard feelings! Is there something specific I can help you with?"
+    ] },
+
+  { tag:"love", patterns:["i love you","love you","i like you","you are cute","marry me","date me","i have feelings for you"],
+    responses:[
+      "Aww that is sweet! 😊 I am a bot so I cannot love back, but I am always here for you!",
+      "I appreciate it! 😄 I care about all my users equally!",
+      "That is very kind! 🤖💙 Now how can I actually help you today?"
+    ] },
+
+  { tag:"bored", patterns:["i am bored","nothing to do","so bored","entertain me","i have nothing to do","boredom"],
+    responses:[
+      "😄 Ask me a riddle, a fun fact or try learning something new today!",
+      "🎮 Try picking up a new hobby like coding, sketching or reading!",
+      "🎲 Type tell me a joke or fun fact for some entertainment!",
+      "📚 Boredom means your brain wants stimulation. Try learning something new!"
+    ] },
+
+  { tag:"favorite", patterns:["whats your favourite","your favourite color","favourite food","do you have favourites","what do you like","your preferences"],
+    responses:[
+      "🤖 As a bot I do not have personal favourites but I love helping people!",
+      "💙 If I had to pick a colour it would be blue. Like the sky and the ocean!",
+      "😄 My favourite thing is answering great questions! What else can I help you with?"
+    ] },
+
+  { tag:"morning", patterns:["good morning","morning","rise and shine","wake up","start of the day"],
+    responses:[
+      "☀️ Good morning! Hope you have an amazing and productive day!",
+      "🌅 Good morning! Start your day with positivity and a glass of water!",
+      "😊 Morning! Today is full of possibilities. Make the most of it!"
+    ] },
+
+  { tag:"night", patterns:["good night","night","sweet dreams","going to bed","time to sleep"],
+    responses:[
+      "🌙 Good night! Sleep well and wake up refreshed!",
+      "💤 Sweet dreams! Rest well. Tomorrow is a new opportunity!",
+      "🌟 Good night! Make sure to get your 7 to 8 hours!"
+    ] },
+
+  // FALLBACK
+  { tag:"fallback", patterns:[],
+    responses:[
+      "🤔 I am not sure I understand. Could you rephrase that?",
+      "😅 Sorry, I do not have an answer for that yet. Type help to see what I can do!",
+      "🧐 Hmm that one is tricky! Try asking something else or type help.",
+      "💭 I am still learning! Try rephrasing your question and I will do my best!"
+    ] }
+];
+
+// ENGINE
+function normalize(text) {
+  return text.toLowerCase().replace(/[^\w\s]/g,"").trim().replace(/\s+/g," ");
+}
+function similarity(a,b) {
+  const sA=new Set(a.split(" ").filter(Boolean));
+  const sB=new Set(b.split(" ").filter(Boolean));
+  const inter=[...sA].filter(t=>sB.has(t)).length;
+  const union=new Set([...sA,...sB]).size;
+  return union===0?0:inter/union;
+}
+function tryMath(text) {
+  const expr=text.replace(/[^0-9+\-*/.() ]/g,"").trim();
+  if(expr.length<3) return null;
+  try {
+    const r=Function('"use strict";return('+expr+')')();
+    if(typeof r==="number"&&isFinite(r)) return "🔢 The answer is: <strong>"+r+"</strong>";
+  } catch(e){}
+  return null;
+}
+function classify(text) {
+  const norm=normalize(text);
+  let best=null,bestScore=0;
+  for(const intent of intents){
+    if(intent.tag==="fallback") continue;
+    for(const p of intent.patterns){
+      const score=similarity(norm,normalize(p));
+      if(score>bestScore){bestScore=score;best=intent;}
+    }
+  }
+  return(!best||bestScore<0.22)?intents.find(i=>i.tag==="fallback"):best;
+}
+function getResponse(text) {
+  const math=tryMath(text);
+  if(math) return math;
+  const intent=classify(text);
+  let r=intent.responses[Math.floor(Math.random()*intent.responses.length)];
+  if(r==="__TIME__") return "⏰ The current time is: <strong>"+new Date().toLocaleTimeString()+"</strong>";
+  if(r==="__DATE__") return "📅 Today is: <strong>"+new Date().toLocaleDateString("en-IN",{weekday:"long",year:"numeric",month:"long",day:"numeric"})+"</strong>";
+  return r;
+}
+
+// UI
+function appendMessage(html,sender){
+  const chat=document.getElementById("chat");
+  const div=document.createElement("div");
+  div.className="msg "+sender;
+  div.innerHTML=html;
+  chat.appendChild(div);
+  chat.scrollTop=chat.scrollHeight;
+}
+function showTyping(){
+  const chat=document.getElementById("chat");
+  const div=document.createElement("div");
+  div.className="msg typing";
+  div.id="typing";
+  div.textContent="AI is typing...";
+  chat.appendChild(div);
+  chat.scrollTop=chat.scrollHeight;
+}
+function removeTyping(){
+  const t=document.getElementById("typing");
+  if(t) t.remove();
+}
+function handleSend(){
+  const input=document.getElementById("userInput");
+  const text=input.value.trim();
+  if(!text) return;
+  appendMessage(text,"user");
+  input.value="";
+  input.focus();
+  showTyping();
+  setTimeout(()=>{removeTyping();appendMessage(getResponse(text),"bot");},500);
+}
+function quickSend(text){
+  document.getElementById("userInput").value=text;
+  handleSend();
+}
+document.getElementById("sendBtn").addEventListener("click",handleSend);
+document.getElementById("userInput").addEventListener("keypress",e=>{if(e.key==="Enter") handleSend();});
+</script>
+</body>
+</html>
